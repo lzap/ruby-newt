@@ -84,7 +84,8 @@ class TestForm < Minitest::Test
 
   def test_set_timer
     time = Time.now
-    fork_newt_ui(method(:form_timer_interactive))
+    rv = fork_newt_ui(method(:form_timer_interactive))
+    assert_equal(true, rv)
     assert_in_delta(1, Time.now - time, 0.01)
   end
 
@@ -120,7 +121,8 @@ class TestForm < Minitest::Test
     f.add_hotkey(Newt::KEY_F10)
     f.add(b)
     rv = f.run
-    rv.reason == Newt::EXIT_HOTKEY
+    rv.reason == Newt::EXIT_HOTKEY && rv.key == Newt::KEY_F10 &&
+      rv.component.nil? && rv.inspect.include?('key=')
   end
 
   def form_timer_interactive
@@ -128,7 +130,8 @@ class TestForm < Minitest::Test
     f = Newt::Form.new
     f.set_timer(1000)
     f.add(b)
-    f.run
+    rv = f.run
+    rv.reason == Newt::EXIT_TIMER && rv.component.nil? && rv.inspect.include?('reason=')
   end
 
   def form_watch_fd_interactive
@@ -138,7 +141,8 @@ class TestForm < Minitest::Test
     file = File.open('/dev/null', 'r')
     f.watch_fd(file, Newt::FD_READ)
     rv = f.run
-    rv.reason == Newt::EXIT_FDREADY
+    rv.reason == Newt::EXIT_FDREADY && rv.watch == file.fileno &&
+      rv.component.nil? && rv.key.nil? && rv.inspect.include?('watch=')
   end
 
   def form_component_interactive
@@ -146,7 +150,9 @@ class TestForm < Minitest::Test
     f = Newt::Form.new
     f.add(b)
     rv = f.run
-    rv.component.class == Newt::Button
+    other = Newt::Button.new(1, 2, 'Other')
+    rv.component.class == Newt::Button && rv.component == b && rv == b && rv != other &&
+      rv.watch.nil? && rv.key.nil? && rv.inspect.include?('component=')
   end
 end
 
