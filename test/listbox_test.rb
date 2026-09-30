@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'minitest/autorun'
+require 'weakref'
 require 'test_helper'
 require 'newt'
 
@@ -73,25 +74,29 @@ class TestListbox < Minitest::Test
     assert_equal(['item3', 10], @lb.get(2))
   end
 
+  def test_retained_values_are_not_exposed_as_instance_variables
+    @lb.append('temporary', Object.new)
+    refute(@lb.instance_variable_defined?(:@newt_ivar_data))
+  end
+
   def test_set_data_releases_replaced_value
-    data = Object.new
-    @lb.set_data(0, data)
-    assert(retained_data?(data))
+    weak_data = set_data_with_weakref(0)
+    GC.start
+    assert(weak_data.weakref_alive?)
 
     @lb.set_data(0, 100)
-    refute(retained_data?(data))
+    GC.start
+    refute(weak_data.weakref_alive?)
   end
 
   def test_set_data_does_not_duplicate_retained_value
-    data = Object.new
-    @lb.set_data(0, data)
-    @lb.set_data(0, data)
-
-    roots = @lb.instance_variable_get(:@newt_ivar_data)
-    assert_equal(1, roots.count { |root| root.equal?(data) })
+    weak_data = set_data_with_weakref(0, 2)
+    GC.start
+    assert(weak_data.weakref_alive?)
 
     @lb.set_data(0, 100)
-    refute(retained_data?(data))
+    GC.start
+    refute(weak_data.weakref_alive?)
   end
 
   def test_append
@@ -132,13 +137,12 @@ class TestListbox < Minitest::Test
     assert_equal(3, @lb.item_count)
   end
 
-  def test_delete_releases_data
+  def test_delete_by_data
     data = Object.new
     @lb.append('temporary', data)
-    assert(retained_data?(data))
 
     @lb.delete(data)
-    refute(retained_data?(data))
+    assert_equal(5, @lb.item_count)
   end
 
   def test_clear
@@ -148,12 +152,13 @@ class TestListbox < Minitest::Test
   end
 
   def test_clear_releases_data
-    data = Object.new
-    @lb.append('temporary', data)
-    assert(retained_data?(data))
+    weak_data = append_data_with_weakref
+    GC.start
+    assert(weak_data.weakref_alive?)
 
     @lb.clear
-    refute(retained_data?(data))
+    GC.start
+    refute(weak_data.weakref_alive?)
   end
 
   def test_get_selection
@@ -188,8 +193,18 @@ class TestListbox < Minitest::Test
 
   private
 
-  def retained_data?(data)
-    @lb.instance_variable_get(:@newt_ivar_data).any? { |root| root.equal?(data) }
+  def set_data_with_weakref(index, repeats = 1)
+    data = Object.new
+    weak_data = WeakRef.new(data)
+    repeats.times { @lb.set_data(index, data) }
+    weak_data
+  end
+
+  def append_data_with_weakref
+    data = Object.new
+    weak_data = WeakRef.new(data)
+    @lb.append('temporary', data)
+    weak_data
   end
 end
 
