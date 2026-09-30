@@ -382,6 +382,9 @@ int rb_ext_Colors_callback_function(VALUE key, VALUE val, VALUE in)
   else if (key == SYMBOL("helpLineBg"))
     colors->helpLineBg = StringValuePtr(val);
 
+  else if (key == SYMBOL("rootTextFg"))
+    colors->rootTextFg = StringValuePtr(val);
+
   else if (key == SYMBOL("rootTextBg"))
     colors->rootTextBg = StringValuePtr(val);
 
